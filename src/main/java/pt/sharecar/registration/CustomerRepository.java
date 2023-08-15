@@ -8,6 +8,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.core.Response;
+import org.jboss.logging.Logger;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.RealmRepresentation;
@@ -17,6 +18,8 @@ import java.util.Arrays;
 
 @ApplicationScoped
 public class CustomerRepository implements PanacheRepository<Customer> {
+
+    private static final Logger LOG = Logger.getLogger(CustomerRepository.class);
 
     @Inject
     EntityManager em;
@@ -37,12 +40,14 @@ public class CustomerRepository implements PanacheRepository<Customer> {
 
     @Transactional
     public void createSchema(String subdomain) {
+        LOG.info("Creating schema in database");
         String query = "CREATE SCHEMA " + subdomain;
         em.createNativeQuery(query).executeUpdate();
     }
 
     //TODO: Tratar quando não conseguir criar realms
     public void createRealm(String subdomain) {
+        LOG.info("Creating realm in Keycloak");
         RealmRepresentation realmRepresentation = new RealmRepresentation();
         realmRepresentation.setRealm(subdomain);
         realmRepresentation.setEnabled(true);
@@ -51,6 +56,7 @@ public class CustomerRepository implements PanacheRepository<Customer> {
 
     //TODO: Tratar quando não conseguir criar usuário
     public void createUser(Customer customer) {
+        LOG.info("Creating user in Keycloak");
         CredentialRepresentation credential = new CredentialRepresentation();
         credential.setType(CredentialRepresentation.PASSWORD);
         credential.setTemporary(true);
@@ -63,7 +69,7 @@ public class CustomerRepository implements PanacheRepository<Customer> {
         userRepresentation.setEmail(customer.getEmail());
         userRepresentation.setCredentials(Arrays.asList(credential));
         Response response = keycloak.realm("master").users().create(userRepresentation);
-        Log.debug(response);
+        LOG.debug(response);
     }
 
 }
