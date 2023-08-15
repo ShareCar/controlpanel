@@ -1,0 +1,42 @@
+databaseChangeLog:
+
+  - changeSet:
+      id: master-1
+      author: luciano
+      changes:
+        - createTable:
+            tableName: tenants
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: tenant_pk
+              - column:
+                  name: company
+                  type: VARCHAR(255)
+                  nullable: false
+              - column:
+                  name: subdomain
+                  type: VARCHAR(255)
+                  nullable: false
+              - column:
+                  name: email
+                  type: VARCHAR(255)
+                  nullable: false
+                  constraints:
+                    unique: true
+                    uniqueConstraintName: tenant_email_uk
+              - column:
+                  name: password
+                  type: VARCHAR(255)
+                  nullable: false
+              - column:
+                  name: firstname
+                  type: VARCHAR(255)
+                  nullable: false
+              - column:
+                  name: lastname
+                  type: VARCHAR(255)
+                  nullable: false

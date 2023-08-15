@@ -1,10 +1,10 @@
-package pt.sharecar.registration;
+package pt.sharecar.tenant;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 
-public class CustomerDTO {
+public class TenantDTO {
 
     @NotEmpty
     public String company;

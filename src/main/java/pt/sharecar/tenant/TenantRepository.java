@@ -1,7 +1,6 @@
-package pt.sharecar.registration;
+package pt.sharecar.tenant;
 
 import io.quarkus.hibernate.orm.panache.PanacheRepository;
-import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
@@ -17,9 +16,9 @@ import org.keycloak.representations.idm.UserRepresentation;
 import java.util.Arrays;
 
 @ApplicationScoped
-public class CustomerRepository implements PanacheRepository<Customer> {
+public class TenantRepository implements PanacheRepository<Tenant> {
 
-    private static final Logger LOG = Logger.getLogger(CustomerRepository.class);
+    private static final Logger LOG = Logger.getLogger(TenantRepository.class);
 
     @Inject
     EntityManager em;
@@ -27,7 +26,7 @@ public class CustomerRepository implements PanacheRepository<Customer> {
     @Inject
     Keycloak keycloak;
 
-    public Customer findBySubdomain(String subdomain) {
+    public Tenant findBySubdomain(String subdomain) {
         return find("subdomain", subdomain).firstResult();
     }
 
@@ -55,7 +54,7 @@ public class CustomerRepository implements PanacheRepository<Customer> {
     }
 
     //TODO: Tratar quando não conseguir criar usuário
-    public void createUser(Customer customer) {
+    public void createUser(Tenant tenant) {
         LOG.info("Creating user in Keycloak");
         CredentialRepresentation credential = new CredentialRepresentation();
         credential.setType(CredentialRepresentation.PASSWORD);
@@ -64,9 +63,9 @@ public class CustomerRepository implements PanacheRepository<Customer> {
 
         UserRepresentation userRepresentation = new UserRepresentation();
         userRepresentation.setEnabled(true);
-        userRepresentation.setFirstName(customer.getFirstName());
-        userRepresentation.setLastName(customer.getLastName());
-        userRepresentation.setEmail(customer.getEmail());
+        userRepresentation.setFirstName(tenant.getFirstName());
+        userRepresentation.setLastName(tenant.getLastName());
+        userRepresentation.setEmail(tenant.getEmail());
         userRepresentation.setCredentials(Arrays.asList(credential));
         Response response = keycloak.realm("master").users().create(userRepresentation);
         LOG.debug(response);

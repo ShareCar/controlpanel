@@ -1,17 +1,17 @@
-package pt.sharecar.registration;
+package pt.sharecar.tenant;
 
 import jakarta.persistence.*;
 import org.apache.commons.lang3.StringUtils;
+import org.hibernate.annotations.UuidGenerator;
 
 import java.util.Objects;
 import java.util.UUID;
 
 @Entity
 @Table(name = "customers")
-public class Customer {
+public class Tenant {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @Column(nullable = false)
@@ -29,10 +29,11 @@ public class Customer {
     @Column(nullable = false, unique = true)
     private String email;
 
-    public Customer() {
+    public Tenant() {
     }
 
-    public Customer(String company, String subdomain, String firstName, String lastName, String email) {
+    public Tenant(String company, String subdomain, String firstName, String lastName, String email) {
+        this.setId(UUID.randomUUID());
         this.setCompany(company);
         this.setSubdomain(subdomain);
         this.setFirstName(firstName);
@@ -92,8 +93,8 @@ public class Customer {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        Customer customer = (Customer) o;
-        return Objects.equals(id, customer.id) && Objects.equals(email, customer.email);
+        Tenant tenant = (Tenant) o;
+        return Objects.equals(id, tenant.id) && Objects.equals(email, tenant.email);
     }
 
     @Override
