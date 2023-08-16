@@ -8,10 +8,12 @@ import java.util.Objects;
 import java.util.UUID;
 
 @Entity
-@Table(name = "customers")
+@Table(name = "tenants")
 public class Tenant {
 
     @Id
+    @GeneratedValue
+    @UuidGenerator
     private UUID id;
 
     @Column(nullable = false)
@@ -33,7 +35,6 @@ public class Tenant {
     }
 
     public Tenant(String company, String subdomain, String firstName, String lastName, String email) {
-        this.setId(UUID.randomUUID());
         this.setCompany(company);
         this.setSubdomain(subdomain);
         this.setFirstName(firstName);

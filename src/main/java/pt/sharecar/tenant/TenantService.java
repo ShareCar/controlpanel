@@ -2,29 +2,37 @@ package pt.sharecar.tenant;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.jboss.logging.Logger;
 import pt.sharecar.messages.AppMessages;
-
-import java.util.Objects;
 
 @ApplicationScoped
 public class TenantService {
 
     private static final Logger LOG = Logger.getLogger(TenantService.class);
+    private static final String VALID_SCHEMA_NAME_REGEXP = "[A-Za-z0-9_]*";
 
     @Inject
     AppMessages messages;
 
     @Inject
-    TenantRepository tenantRepository;
+    TenantRepository repository;
 
-    @Transactional
-    public void add(Tenant tenant) {
-        String tenantId = tenant.getId().toString();
-        String db = tenantId.replace("-","_");
-        String password = RandomStringUtils.randomAlphanumeric(8);
+    public void add(Tenant tenant) throws Exception {
+
+        final String subdomain = tenant.getSubdomain();
+
+        if (!subdomain.matches(VALID_SCHEMA_NAME_REGEXP)) {
+            throw new TenantCreationException("Invalid subdomain name: " + subdomain);
+        }
+
+        /*
+        Criar o esquema - ok
+        Criar a estrutura de tabelas no novo esquema - - ok
+        Criar o realm no keycloak
+        Criar o usuário na base de dados
+        * */
+        repository.createSchema(subdomain);
+        repository.runLiquibase(subdomain);
 
         // Verify if the database name is valid
 
@@ -45,10 +53,6 @@ public class TenantService {
             LOG.error(e);
         }
         */
-    }
-
-    private boolean isValidDomainName(String tenantName) {
-        return tenantName.matches("^[a-zA-Z0-9]*$");
     }
 
 }

@@ -1,0 +1,17 @@
+databaseChangeLog:
+  - changeSet:
+      id: tenant-1
+      author: luciano
+      changes:
+        - createTable:
+            tableName: teste
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(255)
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: teste_pk
+              - column:
+                  name: name
+                  type: VARCHAR(255)

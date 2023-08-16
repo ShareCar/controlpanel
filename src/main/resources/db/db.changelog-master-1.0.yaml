@@ -1,5 +1,4 @@
 databaseChangeLog:
-
   - changeSet:
       id: master-1
       author: luciano
@@ -16,27 +15,34 @@ databaseChangeLog:
               - column:
                   name: company
                   type: VARCHAR(255)
-                  nullable: false
+                  constraints:
+                    nullable: false
               - column:
                   name: subdomain
                   type: VARCHAR(255)
-                  nullable: false
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: tenant_subdomain_uk
               - column:
                   name: email
                   type: VARCHAR(255)
-                  nullable: false
                   constraints:
+                    nullable: false
                     unique: true
                     uniqueConstraintName: tenant_email_uk
               - column:
                   name: password
                   type: VARCHAR(255)
-                  nullable: false
+                  constraints:
+                    nullable: false
               - column:
                   name: firstname
                   type: VARCHAR(255)
-                  nullable: false
+                  constraints:
+                    nullable: false
               - column:
                   name: lastname
                   type: VARCHAR(255)
-                  nullable: false
+                  constraints:
+                    nullable: false
