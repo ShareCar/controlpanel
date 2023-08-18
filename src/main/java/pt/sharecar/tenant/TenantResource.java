@@ -2,16 +2,15 @@ package pt.sharecar.tenant;
 
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.UriBuilder;
 import org.jboss.logging.Logger;
-
-import java.net.URI;
+import pt.sharecar.exceptions.LiquibaseExecutionException;
+import pt.sharecar.exceptions.SchemaCreationException;
+import pt.sharecar.exceptions.TenantCreationException;
 
 @Path("/tenants")
 public class TenantResource {
@@ -33,13 +32,14 @@ public class TenantResource {
                     .build();*/
             //return Response.created(tenantUri).build();
             return Response.ok().build();
-//        }
-//        catch (ValidationException ve) {
-//            LOG.error("Validation error: " + ve.getMessage());
-//            return Response.status(Response.Status.BAD_REQUEST).entity(ve.getMessage()).build();
-//        } catch (TenantCreationException tse) {
-//            LOG.error("Error adding tenant: " + tse.getMessage());
-//            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to add tenant").build();
+        } catch (IllegalArgumentException iae) {
+            return Response.status(Response.Status.BAD_REQUEST).entity(iae.getMessage()).build();
+        } catch (SchemaCreationException sce) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to create schema").build();
+        } catch (LiquibaseExecutionException lee) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed running liquibase").build();
+        } catch (TenantCreationException tce) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed creating realm on Keycloaks").build();
         } catch (Exception e) {
             LOG.error("Unexpected error: " + e.getMessage());
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("An unexpected error occurred").build();

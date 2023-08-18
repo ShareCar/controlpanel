@@ -1,4 +1,4 @@
-package pt.sharecar.tenant;
+package pt.sharecar.exceptions;
 
 public class TenantCreationException extends RuntimeException {
 

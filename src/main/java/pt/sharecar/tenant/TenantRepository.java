@@ -1,8 +1,6 @@
 package pt.sharecar.tenant;
 
 import io.agroal.api.AgroalDataSource;
-import io.quarkus.datasource.common.runtime.DataSourceUtil;
-import io.quarkus.datasource.runtime.DataSourceRuntimeConfig;
 import io.quarkus.hibernate.orm.panache.PanacheRepository;
 import io.quarkus.liquibase.LiquibaseFactory;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -11,10 +9,10 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.core.Response;
+import liquibase.Contexts;
+import liquibase.LabelExpression;
 import liquibase.Liquibase;
-import liquibase.Scope;
 import liquibase.database.Database;
-import liquibase.database.DatabaseConnection;
 import liquibase.database.DatabaseFactory;
 import liquibase.database.jvm.JdbcConnection;
 import liquibase.exception.LiquibaseException;
@@ -24,12 +22,14 @@ import org.keycloak.admin.client.Keycloak;
 import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.RealmRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
+import pt.sharecar.exceptions.KeycloakUserCreationException;
+import pt.sharecar.exceptions.LiquibaseExecutionException;
+import pt.sharecar.exceptions.SchemaCreationException;
+import pt.sharecar.exceptions.TenantCreationException;
 
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 
 @ApplicationScoped
 public class TenantRepository implements PanacheRepository<Tenant> {
@@ -52,48 +52,61 @@ public class TenantRepository implements PanacheRepository<Tenant> {
         return find("subdomain", subdomain).firstResult();
     }
 
-    public boolean schemaExists(String subdomain) {
-        String queryStr = "SELECT COUNT(schema_name) FROM information_schema.schemata WHERE schema_name = :subdomain";
-        Query query = em.createNativeQuery(queryStr).setParameter("subdomain", subdomain);
+    public boolean schemaExists(String schema) {
+        String queryStr = "SELECT COUNT(schema_name) FROM information_schema.schemata WHERE schema_name = :schema";
+        Query query = em.createNativeQuery(queryStr).setParameter("schema", schema);
         Long result = (Long) query.getSingleResult();
         return result != null && result > 0;
     }
 
     @Transactional
-    public void createSchema(String subdomain) {
-        LOG.info("Creating schema in database");
-        String query = "CREATE SCHEMA " + subdomain;
-        em.createNativeQuery(query).executeUpdate();
+    public void createSchema(String schema) {
+        String query = "CREATE SCHEMA IF NOT EXISTS " + schema;
+        try {
+            em.createNativeQuery(query).executeUpdate();
+            LOG.info(String.format("Schema '%s' created in the database", schema));
+        } catch (Exception e) {
+            LOG.error(String.format("Error creating schema %s: %s", schema, e.getMessage()));
+            throw new SchemaCreationException("Error creating schema", e);
+        }
     }
 
-    //TODO: Pensar em como melhorar esse código para tratar as possíveis exceções
-    public void runLiquibase(String schema) throws Exception {
-        Map<String, Object> scopeValues = new HashMap<>();
-        Scope.child(scopeValues, () -> {
-            try (Connection connection = dataSource.getConnection()) {
-                Database database = DatabaseFactory.getInstance().findCorrectDatabaseImplementation(new JdbcConnection(connection));
-                database.setDefaultSchemaName(schema);
-                Liquibase liquibase = new Liquibase("db/db.changelog-tenant.yaml", new ClassLoaderResourceAccessor(), database);
-                liquibase.update(""); // This will update the database to the latest changelog version
-            } catch (Exception e) {
-                // Handle exceptions
-                throw new RuntimeException("Error running Liquibase", e);
-            }
-        });
+    //TODO Verificar se precisa voltar para o esquema default
+    public void runLiquibase(String schema) {
+        LOG.info(String.format("Running Liquibase for the new schema: %s", schema));
+        try (Connection connection = dataSource.getConnection()) {
+            Database database = DatabaseFactory.getInstance().findCorrectDatabaseImplementation(new JdbcConnection(connection));
+            database.setDefaultSchemaName(schema);
+            Liquibase liquibase = new Liquibase("db/db.changelog-tenant.yaml", new ClassLoaderResourceAccessor(), database);
+            liquibase.update(new Contexts(), new LabelExpression());
+            LOG.info(String.format("Liquibase update complete for schema: %s", schema));
+        } catch (SQLException | LiquibaseException e) {
+            LOG.error(String.format("Error running Liquibase for schema [%s]: %s", schema, e.getMessage()));
+            throw new LiquibaseExecutionException("Error running Liquibase", e);
+        }
     }
 
-    //TODO: Tratar quando não conseguir criar realms
-    public void createRealm(String subdomain) {
-        LOG.info("Creating realm in Keycloak");
+    public void createRealm(String realm) {
+        LOG.info(String.format("Creating realm in Keycloak: [%s]", realm));
         RealmRepresentation realmRepresentation = new RealmRepresentation();
-        realmRepresentation.setRealm(subdomain);
+        realmRepresentation.setRealm(realm);
         realmRepresentation.setEnabled(true);
-        keycloak.realms().create(realmRepresentation);
+        try {
+            keycloak.realms().create(realmRepresentation);
+            LOG.info(String.format("Realm [%s] created successfully", realm));
+        } catch (Exception e) {
+            LOG.error(String.format("Error creating realm [%s]: %s", realm, e.getMessage()));
+            throw new TenantCreationException("Error creating realm on Keycloak", e);
+        }
     }
 
-    //TODO: Tratar quando não conseguir criar usuário
+    //TODO: Receber senha e criptografar
     public void createUser(Tenant tenant) {
-        LOG.info("Creating user in Keycloak");
+        if (tenant == null) {
+            throw new IllegalArgumentException("Tenant cannot be null");
+        }
+        LOG.info(String.format("Creating user in Keycloak for tenant: %s", tenant.getSubdomain()));
+
         CredentialRepresentation credential = new CredentialRepresentation();
         credential.setType(CredentialRepresentation.PASSWORD);
         credential.setTemporary(true);
@@ -105,8 +118,17 @@ public class TenantRepository implements PanacheRepository<Tenant> {
         userRepresentation.setLastName(tenant.getLastName());
         userRepresentation.setEmail(tenant.getEmail());
         userRepresentation.setCredentials(Arrays.asList(credential));
-        Response response = keycloak.realm("master").users().create(userRepresentation);
-        LOG.debug(response);
+        try {
+            Response response = keycloak.realm("master").users().create(userRepresentation);
+            if (response.getStatus() == Response.Status.CREATED.getStatusCode()) {
+                LOG.info(String.format("User created successfully for tenant: %s", tenant.getSubdomain()));
+            } else {
+                LOG.warn(String.format("User creation for tenant [%s] returned status code: %s", tenant.getSubdomain(), response.getStatus()));
+            }
+        } catch (Exception e) {
+            LOG.error(String.format("Error creating user for tenant [%s]: %s", tenant.getSubdomain(), e.getMessage()));
+            throw new KeycloakUserCreationException("Erro creating user on realm master", e);
+        }
     }
 
 }
